@@ -1,5 +1,5 @@
 # TODO: Update with exact module version
-numpy
+numpy==1.17.4
 torch>=1.7
 opencv_python
 loguru
@@ -11,7 +11,7 @@ thop
 ninja
 tabulate
 tensorboard
-lap
+# lap
 # motmetrics # now we use the local and customized version instead
 filterpy
 h5py

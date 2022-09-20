@@ -7,6 +7,7 @@
 
 import numpy as np
 from pycocotools.cocoeval import COCOeval
+import torch
 
 # import torch first to make yolox._C work without ImportError of libc10.so
 # in YOLOX, env is already set in __init__.py.

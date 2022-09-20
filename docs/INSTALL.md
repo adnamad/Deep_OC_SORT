@@ -7,8 +7,12 @@ Step1. Install OC-SORT
 git clone https://github.com/noahcao/OC_SORT.git
 cd OC_SORT
 pip3 install -r requirements.txt
+conda install -c conda-forge lap    ## install lap seperately 
 python3 setup.py develop
 ```
+Make sure numpy version stays as 1.17.4
+need to install pytorch-gpu
+and need to install cython_bbox for windows
 
 Step2. Install [pycocotools](https://github.com/cocodataset/cocoapi).
 
