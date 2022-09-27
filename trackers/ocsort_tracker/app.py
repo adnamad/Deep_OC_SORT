@@ -78,7 +78,14 @@ def extract_image_patch(image, bbox, patch_shape, img_info, idx):
         or bbox[2] > image.shape[1]
         or bbox[3] > image.shape[0]
     ):
-        return None
+
+        print("FAULTY PATCH $$$ - ", bbox)
+        bbox[0] = np.clip(bbox[0], 0, None)
+        bbox[1] = np.clip(bbox[1], 0, None)
+        bbox[2] = np.clip(bbox[2], 0, image.shape[1])
+        bbox[3] = np.clip(bbox[3], 0, image.shape[0])
+        print("FIXED PATCH $$$ - ", bbox)
+        # return None
 
     sx, sy, ex, ey = bbox
     image = image[sy:ey, sx:ex]

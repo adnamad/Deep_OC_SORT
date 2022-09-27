@@ -187,6 +187,9 @@ def ct_dist(bboxes1, bboxes2):
 
 
 def cosine_dist(m1, m2):
+    print("COS DIST _ M1 = ", m1.shape)
+    print("COS DIST _ M2 = ", m2.shape)
+
     cos_d = 1 - sp.distance.cdist(m1, m2, "cosine")
     return cos_d
 
@@ -305,7 +308,17 @@ def associate(
 
     # breakpoint()
 
-    app_cost = cosine_dist(trk_apps, app_feats)
+    app_cost = cosine_dist(app_feats, trk_apps) * scores
+    print("MAX APP COST  - ", np.amax(app_cost, axis=1))
+    print("Velocity cost - ", np.amax(angle_diff_cost, axis=1))
+    print("MAX IOU cost - ", np.amax(iou_matrix, axis=1))
+    print(
+        "######################################################################################"
+    )
+
+    print("BEST TRACKERS APP - ", np.argmax(app_cost, axis=1))
+    print("BEST TRACKERS VEL - ", np.argmax(angle_diff_cost, axis=1))
+    print("BEST TRACKERS IOU - ", np.argmax(iou_matrix, axis=1))
 
     if min(iou_matrix.shape) > 0:
         a = (iou_matrix > iou_threshold).astype(np.int32)
@@ -313,7 +326,7 @@ def associate(
             matched_indices = np.stack(np.where(a), axis=1)
         else:
             matched_indices = linear_assignment(
-                -(iou_matrix + angle_diff_cost + app_cost)
+                -((0.9 * iou_matrix) + angle_diff_cost + app_cost)  ### COST BLENDING
             )
     else:
         matched_indices = np.empty(shape=(0, 2))

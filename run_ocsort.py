@@ -188,6 +188,9 @@ def main(exp, args, num_gpu):
         if not os.path.basename(f).startswith("eval")
     ]
 
+    print("Results Folder - ", results_folder)
+    print("TEST FILES - ", tsfiles)
+
     logger.info(
         "Found {} groundtruths and {} test files.".format(len(gtfiles), len(tsfiles))
     )

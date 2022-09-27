@@ -128,7 +128,7 @@ class KalmanBoxTracker(object):
         self.delta_t = delta_t
         self.last_app_feats = np.ones((128)) * -1
 
-    def update(self, bbox, app_feat=None):
+    def update(self, bbox, app_feat):
         """
         Updates the state vector with observed bbox.
         """
@@ -242,6 +242,8 @@ class OCSort(object):
         self.frame_count += 1
         img_file_name = img_info[4]
         print("Image file name ", img_file_name)
+        # if img_file_name[0].split("/")[-1] == "000330.jpg":
+        #     breakpoint()
         # post_process detections
         if output_results.shape[1] == 5:
             scores = output_results[:, 4]
@@ -299,6 +301,7 @@ class OCSort(object):
 
         # breakpoint()
         app_feats = get_viz_feats(img_fp, dets[:, :4], img_info)
+        second_app_feats = get_viz_feats(img_fp, dets_second[:, :4], img_info)
         print("FEATS - ", app_feats.shape)  ### [Nboxes,128]
 
         """
@@ -317,7 +320,9 @@ class OCSort(object):
         )
         for m in matched:
             # breakpoint()
-            self.trackers[m[1]].update(dets[m[0], :], app_feats[m[0], :])
+            self.trackers[m[1]].update(
+                dets[m[0], :], app_feats[m[0], :]
+            )  ### Update for matched detection-track pairs
 
         """
             Second round of associaton by OCR
@@ -341,7 +346,9 @@ class OCSort(object):
                     det_ind, trk_ind = m[0], unmatched_trks[m[1]]
                     if iou_left[m[0], m[1]] < self.iou_threshold:
                         continue
-                    self.trackers[trk_ind].update(dets_second[det_ind, :])
+                    self.trackers[trk_ind].update(
+                        dets_second[det_ind, :], second_app_feats[det_ind, :]
+                    )
                     to_remove_trk_indices.append(trk_ind)
                 unmatched_trks = np.setdiff1d(
                     unmatched_trks, np.array(to_remove_trk_indices)
@@ -365,7 +372,9 @@ class OCSort(object):
                     det_ind, trk_ind = unmatched_dets[m[0]], unmatched_trks[m[1]]
                     if iou_left[m[0], m[1]] < self.iou_threshold:
                         continue
-                    self.trackers[trk_ind].update(dets[det_ind, :])
+                    self.trackers[trk_ind].update(
+                        dets[det_ind, :], app_feats[det_ind, :]
+                    )  ### TODO UPDATE yaad rakhna BC
                     to_remove_det_indices.append(det_ind)
                     to_remove_trk_indices.append(trk_ind)
                 unmatched_dets = np.setdiff1d(
@@ -376,10 +385,16 @@ class OCSort(object):
                 )
 
         for m in unmatched_trks:
-            self.trackers[m].update(None)
+            self.trackers[m].update(
+                None, None
+            )  #### Update for tracks that were not matched
 
         # create and initialise new trackers for unmatched detections
-        for i in unmatched_dets:
+        for (
+            i
+        ) in (
+            unmatched_dets
+        ):  #### Update for detection not matched - (They get new tracks)
             trk = KalmanBoxTracker(dets[i, :], delta_t=self.delta_t)
             self.trackers.append(trk)
         i = len(self.trackers)
