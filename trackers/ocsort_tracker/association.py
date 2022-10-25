@@ -194,6 +194,21 @@ def cosine_dist(m1, m2):
     return cos_d
 
 
+def split_cosine_dist(dets, trks):
+
+    cos_dist = np.zeros((len(dets), len(trks)))
+
+    for i in range(len(dets)):
+        for j in range(len(trks)):
+
+            cos_d = 1 - sp.distance.cdist(dets[i], trks[j], "cosine")
+            print("COS_D SHAPE - ", cos_d.shape)
+            print(cos_d)  ## should be 4x4
+            cos_dist[i, j] = np.max(cos_d)
+
+    return cos_dist
+
+
 def speed_direction_batch(dets, tracks):
     tracks = tracks[..., np.newaxis]
     CX1, CY1 = (dets[:, 0] + dets[:, 2]) / 2.0, (dets[:, 1] + dets[:, 3]) / 2.0
@@ -308,17 +323,18 @@ def associate(
 
     # breakpoint()
 
-    app_cost = cosine_dist(app_feats, trk_apps) * scores
-    print("MAX APP COST  - ", np.amax(app_cost, axis=1))
-    print("Velocity cost - ", np.amax(angle_diff_cost, axis=1))
-    print("MAX IOU cost - ", np.amax(iou_matrix, axis=1))
-    print(
-        "######################################################################################"
-    )
+    # app_cost = cosine_dist(app_feats, trk_apps) * scores
+    app_cost = split_cosine_dist(app_feats, trk_apps) * scores
+    # print("MAX APP COST  - ", np.amax(app_cost, axis=1))
+    # print("Velocity cost - ", np.amax(angle_diff_cost, axis=1))
+    # print("MAX IOU cost - ", np.amax(iou_matrix, axis=1))
+    # print(
+    #     "######################################################################################"
+    # )
 
-    print("BEST TRACKERS APP - ", np.argmax(app_cost, axis=1))
-    print("BEST TRACKERS VEL - ", np.argmax(angle_diff_cost, axis=1))
-    print("BEST TRACKERS IOU - ", np.argmax(iou_matrix, axis=1))
+    # print("BEST TRACKERS APP - ", np.argmax(app_cost, axis=1))
+    # print("BEST TRACKERS VEL - ", np.argmax(angle_diff_cost, axis=1))
+    # print("BEST TRACKERS IOU - ", np.argmax(iou_matrix, axis=1))
 
     if min(iou_matrix.shape) > 0:
         a = (iou_matrix > iou_threshold).astype(np.int32)
@@ -326,7 +342,9 @@ def associate(
             matched_indices = np.stack(np.where(a), axis=1)
         else:
             matched_indices = linear_assignment(
-                -((0.9 * iou_matrix) + angle_diff_cost + app_cost)  ### COST BLENDING
+                -(
+                    (1 * iou_matrix) + angle_diff_cost + (0.5 * app_cost)
+                )  ### COST BLENDING
             )
     else:
         matched_indices = np.empty(shape=(0, 2))

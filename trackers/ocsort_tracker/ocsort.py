@@ -126,7 +126,9 @@ class KalmanBoxTracker(object):
         self.history_observations = []
         self.velocity = None
         self.delta_t = delta_t
-        self.last_app_feats = np.ones((128)) * -1
+        self.last_app_feats = (
+            np.ones((3, 128)) * -1
+        )  ##################################################### TODO change here for whole/split bbox or to number of splits so either np.ones((128)) * -1 OR np.ones((4, 128)) * -1
 
     def update(self, bbox, app_feat):
         """
@@ -199,6 +201,21 @@ ASSO_FUNCS = {
     "diou": diou_batch,
     "ct_dist": ct_dist,
 }
+
+
+def split_cosine_dist(dets, trks):
+
+    cos_dist = np.zeros((len(dets), len(trks)))
+
+    for i in range(len(dets)):
+        for j in range(len(trks)):
+
+            cos_d = 1 - sp.distance.cdist(dets[i], trks[j], "cosine")
+            print("COS_D SHAPE - ", cos_d.shape)
+            print(cos_d)  ## should be 4x4
+            cos_dist[i, j] = np.max(cos_d)
+
+    return cos_dist
 
 
 class OCSort(object):
@@ -334,6 +351,7 @@ class OCSort(object):
                 dets_second, u_trks
             )  # iou between low score detections and unmatched tracks
             iou_left = np.array(iou_left)
+            print("byte")
             if iou_left.max() > self.iou_threshold:
                 """
                     NOTE: by using a lower threshold, e.g., self.iou_threshold - 0.1, you may
@@ -357,6 +375,18 @@ class OCSort(object):
         if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
             left_dets = dets[unmatched_dets]
             left_trks = last_boxes[unmatched_trks]
+
+            left_trk_apps = trk_apps[unmatched_trks]
+            left_det_apps = app_feats[unmatched_dets]
+
+            scores = np.repeat(
+                left_dets[:, -1][:, np.newaxis], len(unmatched_trks), axis=1
+            )
+
+            left_app_cost = (
+                split_cosine_dist(left_det_apps, left_trk_apps) * scores
+            )  ##############  TODO - change this line if you want to add/remove app feats from 2nd degree matching
+
             iou_left = self.asso_func(left_dets, left_trks)
             iou_left = np.array(iou_left)
             if iou_left.max() > self.iou_threshold:
@@ -365,7 +395,17 @@ class OCSort(object):
                     get a higher performance especially on MOT17/MOT20 datasets. But we keep it
                     uniform here for simplicity
                 """
-                rematched_indices = linear_assignment(-iou_left)
+                # rematched_indices = linear_assignment(
+                #     -(iou_left)  ### maybe add scores here
+                # )
+
+                rematched_indices = linear_assignment(
+                    # -(iou_left + (0.5 * left_app_cost))  ### maybe add scores here
+                    -(
+                        iou_left
+                    )  ##############  TODO - change this line if you want to add/remove app feats from 2nd degree matching
+                )
+
                 to_remove_det_indices = []
                 to_remove_trk_indices = []
                 for m in rematched_indices:
@@ -374,7 +414,7 @@ class OCSort(object):
                         continue
                     self.trackers[trk_ind].update(
                         dets[det_ind, :], app_feats[det_ind, :]
-                    )  ### TODO UPDATE yaad rakhna BC
+                    )  ### TODO remember UPDATE
                     to_remove_det_indices.append(det_ind)
                     to_remove_trk_indices.append(trk_ind)
                 unmatched_dets = np.setdiff1d(
