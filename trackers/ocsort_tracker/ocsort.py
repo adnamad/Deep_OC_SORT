@@ -7,6 +7,8 @@ import numpy as np
 from .association import *
 from .app import get_viz_feats
 
+from collections import deque
+
 
 def k_previous_obs(observations, cur_age, k):
     if len(observations) == 0:
@@ -66,7 +68,7 @@ class KalmanBoxTracker(object):
 
     count = 0
 
-    def __init__(self, bbox, delta_t=3, orig=False):
+    def __init__(self, bbox, delta_t=3, orig=False, app_k=100):
         """
         Initialises a tracker using initial bounding box.
 
@@ -126,9 +128,11 @@ class KalmanBoxTracker(object):
         self.history_observations = []
         self.velocity = None
         self.delta_t = delta_t
-        self.last_app_feats = (
-            np.ones((3, 128)) * -1
-        )  ##################################################### TODO change here for whole/split bbox or to number of splits so either np.ones((128)) * -1 OR np.ones((4, 128)) * -1
+        self.last_app_feats = deque([np.ones((3, 128)) * -1], maxlen=app_k)
+
+        # self.last_app_feats = (
+        #     np.ones((3, 128)) * -1
+        # )  ##################################################### TODO change here for whole/split bbox or to number of splits so either np.ones((128)) * -1 OR np.ones((4, 128)) * -1
 
     def update(self, bbox, app_feat):
         """
@@ -154,7 +158,9 @@ class KalmanBoxTracker(object):
               and self.history_observations. Bear it for the moment.
             """
             self.last_observation = bbox
-            self.last_app_feats = app_feat
+            # self.last_app_feats = app_feat
+            self.last_app_feats.append(app_feat)
+
             self.observations[self.age] = bbox
             self.history_observations.append(bbox)
 
@@ -203,19 +209,26 @@ ASSO_FUNCS = {
 }
 
 
-def split_cosine_dist(dets, trks):
+# def split_cosine_dist(dets, trks, affinity_thresh=0.5):
 
-    cos_dist = np.zeros((len(dets), len(trks)))
+#     cos_dist = np.zeros((len(dets), len(trks)))
 
-    for i in range(len(dets)):
-        for j in range(len(trks)):
+#     for i in range(len(dets)):
+#         for j in range(len(trks)):
 
-            cos_d = 1 - sp.distance.cdist(dets[i], trks[j], "cosine")
-            print("COS_D SHAPE - ", cos_d.shape)
-            print(cos_d)  ## should be 4x4
-            cos_dist[i, j] = np.max(cos_d)
+#             cos_d = 1 - sp.distance.cdist(dets[i], trks[j], "cosine")
+#             # print("COS_D SHAPE - ", cos_d.shape)
+#             # print(cos_d)  ## should be 3X3
+#             # cos_dist[i, j] = np.max(cos_d)
+#             patch_affinity = np.max(cos_d, axis=0)  ## shape = [3]
+#             if len(np.where(patch_affinity > affinity_thresh)[0]) != len(
+#                 patch_affinity
+#             ):
+#                 cos_dist[i, j] = 0
+#             else:
+#                 cos_dist[i, j] = np.mean(patch_affinity)
 
-    return cos_dist
+#     return cos_dist
 
 
 class OCSort(object):
@@ -287,10 +300,21 @@ class OCSort(object):
         trk_apps = []
         to_del = []
         ret = []
+
         for t, trk in enumerate(trks):
+
+            if t == 0:
+
+                print(
+                    "@@@ K DEQUE FEATS SHAPE - Tracker {} :".format(t),
+                    np.array(self.trackers[0].last_app_feats).shape,
+                )
+
             pos = self.trackers[t].predict()[0]
             trk[:] = [pos[0], pos[1], pos[2], pos[3], 0]
-            trk_apps.append(self.trackers[t].last_app_feats)
+            # trk_apps.append(self.trackers[t].last_app_feats)
+            temp_np_trk_app = np.array(self.trackers[t].last_app_feats)
+            trk_apps.append(np.mean(temp_np_trk_app, axis=0))
             if np.any(np.isnan(pos)):
                 to_del.append(t)
         trks = np.ma.compress_rows(np.ma.masked_invalid(trks))
@@ -324,6 +348,7 @@ class OCSort(object):
         """
             First round of association
         """
+        # breakpoint()
         matched, unmatched_dets, unmatched_trks = associate(
             dets,
             trks,

@@ -3,6 +3,8 @@ import numpy as np
 from .app import get_viz_feats
 import scipy.spatial as sp
 
+from itertools import combinations
+
 
 def iou_batch(bboxes1, bboxes2):
     """
@@ -187,14 +189,14 @@ def ct_dist(bboxes1, bboxes2):
 
 
 def cosine_dist(m1, m2):
-    print("COS DIST _ M1 = ", m1.shape)
-    print("COS DIST _ M2 = ", m2.shape)
+    # print("COS DIST _ M1 = ", m1.shape)
+    # print("COS DIST _ M2 = ", m2.shape)
 
     cos_d = 1 - sp.distance.cdist(m1, m2, "cosine")
     return cos_d
 
 
-def split_cosine_dist(dets, trks):
+def split_cosine_dist(dets, trks, affinity_thresh=0.5, pair_diff_thresh=0.6):
 
     cos_dist = np.zeros((len(dets), len(trks)))
 
@@ -202,9 +204,48 @@ def split_cosine_dist(dets, trks):
         for j in range(len(trks)):
 
             cos_d = 1 - sp.distance.cdist(dets[i], trks[j], "cosine")
-            print("COS_D SHAPE - ", cos_d.shape)
-            print(cos_d)  ## should be 4x4
-            cos_dist[i, j] = np.max(cos_d)
+            # print("COS_D SHAPE - ", cos_d.shape2
+            # print(cos_d)  ## should be 3X3
+            # cos_dist[i, j] = np.max(cos_d)
+            patch_affinity = np.max(cos_d, axis=0)  ## shape = [3]
+
+            # pairs = combinations(patch_affinity, 2)
+
+            # pair_diffs = np.array([abs(x - y) for x, y in pairs])
+
+            # if len(np.where(pair_diffs > pair_diff_thresh)[0]) > 0:
+            #     cos_dist[i, j] = 0
+            # else:
+            #     cos_dist[i, j] = np.mean(patch_affinity)
+
+            # exp16 - Using HARD threshold of 0.5
+
+            if len(np.where(patch_affinity > affinity_thresh)[0]) != len(
+                patch_affinity
+            ):
+                cos_dist[i, j] = 0
+            else:
+                cos_dist[i, j] = np.mean(patch_affinity)
+
+    """
+    Looks like this for now - 
+
+    array([[0.54915825, 0.60510709, 0.82778302, ..., 0.        , 0.        ,
+        0.        ],
+       [0.82966495, 0.        , 0.        , ..., 0.        , 0.        ,
+        0.        ],
+       [0.        , 0.79634375, 0.        , ..., 0.        , 0.        ,
+        0.        ],
+       ...,
+       [0.        , 0.        , 0.        , ..., 0.        , 0.        ,
+        0.        ],
+       [0.        , 0.        , 0.        , ..., 0.        , 0.        ,
+        0.        ],
+       [0.        , 0.        , 0.        , ..., 0.        , 0.        ,
+        0.        ]])
+
+
+    """
 
     return cos_dist
 
@@ -324,7 +365,19 @@ def associate(
     # breakpoint()
 
     # app_cost = cosine_dist(app_feats, trk_apps) * scores
+    # breakpoint()
+
+    """
+    app_feats = (25 (num of boxes), 3,128)
+    trk_apps = (27 (num of trackers), 3,128)
+    scores  = (25,27)
+
+    app_cost = (25,27)
+
+    """
+
     app_cost = split_cosine_dist(app_feats, trk_apps) * scores
+    # breakpoint()
     # print("MAX APP COST  - ", np.amax(app_cost, axis=1))
     # print("Velocity cost - ", np.amax(angle_diff_cost, axis=1))
     # print("MAX IOU cost - ", np.amax(iou_matrix, axis=1))
