@@ -74,9 +74,9 @@ We are still actively updating OC-SORT. We always welcome contributions to make 
 ## Capstone Edits
 
 1. Command to Run
-   python run_ocsort.py -f exps/example/mot/yolox_x_ablation.py -c pretrained/bytetrack_ablation.pth.tar -b 1 -d 1 --fp16 --fuse --expn $exp5_bt_app
+    python run_ocsort.py -f exps/example/mot/yolox_x_ablation.py -c pretrained/bytetrack_ablation.pth.tar -b 1 -d 1 --fp16 --fuse --expn $exp5_bt_app
 
-2. Added apps.py in trackers/ocsort_tracker
+2.  Added apps.py in trackers/ocsort_tracker
 
 ## Acknowledgement and Citation
 
